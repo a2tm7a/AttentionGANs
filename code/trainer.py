@@ -241,6 +241,11 @@ class condGANTrainer(object):
         num_iterations = 0
         curr_count = 0
         wgan_d_iters = 5
+
+        train_history = {}
+        train_history['G_loss'] = []
+        train_history['D_loss'] = []
+
         for epoch in range(start_epoch, self.max_epoch):
 
             if num_iterations < 25 or num_iterations % 500 == 0:
@@ -292,7 +297,7 @@ class condGANTrainer(object):
                     wrong_errD.backward(self.grad_factor)
                     real_errD.backward(self.neg_grad_factor)
                     fake_errD.backward(self.grad_factor)
-
+                    train_history['D_loss'].append((num_iterations, real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
                     # errD.backward()
                     optimizersD[i].step()
                     errD_total += errD
@@ -304,6 +309,7 @@ class condGANTrainer(object):
                     continue
                 else:
                     curr_count = 0
+                    num_iterations += 1
                 #######################################################
                 # (4) Update G network: maximize log(D(G(z)))
                 ######################################################
@@ -319,9 +325,10 @@ class condGANTrainer(object):
                                    words_embs, sent_emb, match_labels, cap_lens, class_ids)
                 kl_loss = KL_loss(mu, logvar)
                 errG_total += kl_loss
+                train_history['G_loss'].append((num_iterations, errG_total))
                 G_logs += 'kl_loss: %.2f ' % kl_loss.data[0]
                 # backward and update parameters
-                errG_total.backward()
+                errG_total.backward(self.neg_grad_factor)
                 optimizerG.step()
                 for p, avg_p in zip(netG.parameters(), avg_param_G):
                     avg_p.mul_(0.999).add_(0.001, p.data)
@@ -341,6 +348,8 @@ class condGANTrainer(object):
                     #                       words_embs, mask, image_encoder,
                     #                       captions, cap_lens,
                     #                       epoch, name='current')
+                    if num_iterations % 100 == 0:
+                        np.save('train_history.npy', train_history)
             end_t = time.time()
 
             print('''[%d/%d][%d]
