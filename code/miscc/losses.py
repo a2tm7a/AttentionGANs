@@ -150,13 +150,13 @@ def discriminator_loss(netD, real_imgs, fake_imgs, conditions,
     # cond_wrong_errD = nn.BCELoss()(cond_wrong_logits, fake_labels[1:batch_size])
 
     if netD.UNCOND_DNET is not None:
-        print("In UNCOND_DNET")
-        exit()
-        real_logits = netD.UNCOND_DNET(real_features)
-        fake_logits = netD.UNCOND_DNET(fake_features)
-        real_errD = nn.BCELoss()(real_logits, real_labels)
-        fake_errD = nn.BCELoss()(fake_logits, fake_labels)
-        errD = ((real_errD + cond_real_errD) / 2. +
+        # print("In UNCOND_DNET")
+        # exit()
+        real_errD = netD.UNCOND_DNET(real_features)
+        fake_errD = netD.UNCOND_DNET(fake_features)
+        # real_errD = nn.BCELoss()(real_logits, real_labels)
+        # fake_errD = nn.BCELoss()(fake_logits, fake_labels)
+        errD = ((real_errD + cond_real_errD) / 2. -
                 (fake_errD + cond_fake_errD + cond_wrong_errD) / 3.)
     else:
         errD = cond_real_errD - (cond_fake_errD + cond_wrong_errD) / 2.

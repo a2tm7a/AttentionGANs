@@ -297,7 +297,7 @@ class condGANTrainer(object):
                     wrong_errD.backward(self.grad_factor)
                     real_errD.backward(self.neg_grad_factor)
                     fake_errD.backward(self.grad_factor)
-                    train_history['D_loss'].append((num_iterations, real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
+                    train_history['D_loss'].append((num_iterations, errD, real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
                     # errD.backward()
                     optimizersD[i].step()
                     errD_total += errD
