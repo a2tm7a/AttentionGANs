@@ -41,9 +41,11 @@ def gen_example(wordtoix, algo):
     with open(filepath, "r") as f:
         filenames = f.read().decode('utf8').split('\n')
         for name in filenames:
+            print("NAME :", name)
             if len(name) == 0:
                 continue
             filepath = '%s/%s.txt' % (cfg.DATA_DIR, name)
+            # print(filepath)
             with open(filepath, "r") as f:
                 print('Load from:', name)
                 sentences = f.read().decode('utf8').split('\n')

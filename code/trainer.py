@@ -227,6 +227,10 @@ class condGANTrainer(object):
         fixed_noise = Variable(torch.FloatTensor(batch_size, nz).normal_(0, 1))
         if cfg.CUDA:
             noise, fixed_noise = noise.cuda(), fixed_noise.cuda()
+        self.train_hist = {}
+        self.train_hist['g_loss'] = []
+        self.train_hist['d_loss'] = []
+        self.train_hist['epoch_time'] = []
 
         gen_iterations = 0
         # gen_iterations = start_epoch * self.num_batches
@@ -292,6 +296,8 @@ class condGANTrainer(object):
                 kl_loss = KL_loss(mu, logvar)
                 errG_total += kl_loss
                 G_logs += 'kl_loss: %.2f ' % kl_loss.data[0]
+                self.train_hist['g_loss'].append(errG_total.data[0])
+                self.train_hist['d_loss'].append(errD_total.data[0])
                 # backward and update parameters
                 errG_total.backward()
                 optimizerG.step()
@@ -314,6 +320,7 @@ class condGANTrainer(object):
                     #                       captions, cap_lens,
                     #                       epoch, name='current')
             end_t = time.time()
+            self.train_hist['epoch_time'].append(end_t - start_t)
 
             print('''[%d/%d][%d]
                   Loss_D: %.2f Loss_G: %.2f Time: %.2fs'''
@@ -323,6 +330,7 @@ class condGANTrainer(object):
 
             if epoch % cfg.TRAIN.SNAPSHOT_INTERVAL == 0:  # and epoch != 0:
                 self.save_model(netG, avg_param_G, netsD, epoch)
+                np.save('training_history.npy', self.train_hist)
 
         self.save_model(netG, avg_param_G, netsD, self.max_epoch)
 
