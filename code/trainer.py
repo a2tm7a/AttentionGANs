@@ -45,6 +45,9 @@ class condGANTrainer(object):
         self.data_loader = data_loader
         self.num_batches = len(self.data_loader)
 
+        self.grad_factor = Variable(torch.Tensor([1]))
+        self.neg_grad_factor = Variable(torch.Tensor([-1]))
+
     def build_models(self):
         # ###################encoders######################################## #
         if cfg.TRAIN.NET_E == '':
@@ -122,6 +125,9 @@ class condGANTrainer(object):
                     netsD[i].load_state_dict(state_dict)
         # ########################################################### #
         if cfg.CUDA:
+            self.grad_factor = self.grad_factor.cuda()
+            self.neg_grad_factor = self.neg_grad_factor.cuda()
+
             text_encoder = text_encoder.cuda()
             image_encoder = image_encoder.cuda()
             netG.cuda()
@@ -230,7 +236,18 @@ class condGANTrainer(object):
 
         gen_iterations = 0
         # gen_iterations = start_epoch * self.num_batches
+
+        # Number of total iterations
+        num_iterations = 0
+        curr_count = 0
+        wgan_d_iters = 5
         for epoch in range(start_epoch, self.max_epoch):
+
+            if num_iterations < 25 or num_iterations % 500 == 0:
+                d_iters = 100
+            else:
+                d_iters = wgan_d_iters
+
             start_t = time.time()
 
             data_iter = iter(self.data_loader)
@@ -268,14 +285,25 @@ class condGANTrainer(object):
                 D_logs = ''
                 for i in range(len(netsD)):
                     netsD[i].zero_grad()
-                    errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
+                    errD, real_errD, fake_errD, wrong_errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
                                               sent_emb, real_labels, fake_labels)
                     # backward and update parameters
-                    errD.backward()
+
+                    wrong_errD.backward(self.grad_factor)
+                    real_errD.backward(self.neg_grad_factor)
+                    fake_errD.backward(self.grad_factor)
+
+                    # errD.backward()
                     optimizersD[i].step()
                     errD_total += errD
                     D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
 
+                if curr_count < d_iters and step < self.num_batches - 1:
+                    curr_count += 1
+                    num_iterations += 1
+                    continue
+                else:
+                    curr_count = 0
                 #######################################################
                 # (4) Update G network: maximize log(D(G(z)))
                 ######################################################
