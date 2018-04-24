@@ -294,11 +294,11 @@ class condGANTrainer(object):
                                               sent_emb, real_labels, fake_labels)
                     # backward and update parameters
 
-                    wrong_errD.backward(self.grad_factor)
-                    real_errD.backward(self.neg_grad_factor)
-                    fake_errD.backward(self.grad_factor)
+                    #wrong_errD.backward(self.grad_factor)
+                    #real_errD.backward(self.neg_grad_factor)
+                    #fake_errD.backward(self.grad_factor)
                     train_history['D_loss'].append((num_iterations, errD, real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
-                    # errD.backward()
+                    errD.backward()
                     optimizersD[i].step()
 
                     for p in netsD[i].parameters():
@@ -332,7 +332,7 @@ class condGANTrainer(object):
                 train_history['G_loss'].append((num_iterations, errG_total))
                 G_logs += 'kl_loss: %.2f ' % kl_loss.data[0]
                 # backward and update parameters
-                errG_total.backward(self.neg_grad_factor)
+                errG_total.backward()
                 optimizerG.step()
                 for p, avg_p in zip(netG.parameters(), avg_param_G):
                     avg_p.mul_(0.999).add_(0.001, p.data)

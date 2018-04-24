@@ -543,10 +543,13 @@ class D_GET_LOGITS(nn.Module):
             self.jointConv = Block3x3_leakRelu(ndf * 8 + nef, ndf * 8)
 
         self.outlogits = nn.Sequential(
-            nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4))
-            # nn.Sigmoid())
+            nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
+            nn.Sigmoid())
 
-    def forward(self, h_code, c_code=None):
+        self.outnologits = nn.Sequential(
+            nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4))
+
+    def forward(self, h_code, c_code=None, logit=True):
         if self.bcondition and c_code is not None:
             # conditioning output
             c_code = c_code.view(-1, self.ef_dim, 1, 1)
@@ -558,7 +561,11 @@ class D_GET_LOGITS(nn.Module):
         else:
             h_c_code = h_code
 
-        output = self.outlogits(h_c_code)
+        if logit:
+            output = self.outlogits(h_c_code)
+        else:
+            output = self.outnologits(h_c_code)
+
         return output.view(-1)
 
 
