@@ -307,6 +307,10 @@ class condGANTrainer(object):
                     errD_total += errD
                     D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
                 step += 1
+                print("Current count: ", curr_count)
+                print("Num iterations: ", num_iterations)
+                print("Generator Iterations: ", gen_iterations)
+                print("Step : ", step, "  Epoch: ", epoch)
                 if curr_count < d_iters and step < self.num_batches - 1:
                     curr_count += 1
                     num_iterations += 1
