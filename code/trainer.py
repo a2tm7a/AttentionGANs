@@ -300,6 +300,10 @@ class condGANTrainer(object):
                     train_history['D_loss'].append((num_iterations, errD, real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
                     # errD.backward()
                     optimizersD[i].step()
+
+                    for p in netsD[i].parameters():
+                        p.data.clamp_(-0.01, 0.01)
+
                     errD_total += errD
                     D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
 
