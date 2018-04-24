@@ -306,7 +306,7 @@ class condGANTrainer(object):
 
                     errD_total += errD
                     D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
-
+                step += 1
                 if curr_count < d_iters and step < self.num_batches - 1:
                     curr_count += 1
                     num_iterations += 1
@@ -318,7 +318,7 @@ class condGANTrainer(object):
                 # (4) Update G network: maximize log(D(G(z)))
                 ######################################################
                 # compute total loss for training G
-                step += 1
+
                 gen_iterations += 1
 
                 # do not need to compute gradient for Ds
