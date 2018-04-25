@@ -248,76 +248,81 @@ class condGANTrainer(object):
 
         for epoch in range(start_epoch, self.max_epoch):
 
-            if num_iterations < 25 or num_iterations % 500 == 0:
-                d_iters = 100
-            else:
-                d_iters = wgan_d_iters
 
             start_t = time.time()
 
             data_iter = iter(self.data_loader)
             step = 0
             while step < self.num_batches:
-                # reset requires_grad to be trainable for all Ds
-                # self.set_requires_grad_value(netsD, True)
 
-                ######################################################
-                # (1) Prepare training data and Compute text embeddings
-                ######################################################
-                data = data_iter.next()
-                imgs, captions, cap_lens, class_ids, keys = prepare_data(data)
-
-                hidden = text_encoder.init_hidden(batch_size)
-                # words_embs: batch_size x nef x seq_len
-                # sent_emb: batch_size x nef
-                words_embs, sent_emb = text_encoder(captions, cap_lens, hidden)
-                words_embs, sent_emb = words_embs.detach(), sent_emb.detach()
-                mask = (captions == 0)
-                num_words = words_embs.size(2)
-                if mask.size(1) > num_words:
-                    mask = mask[:, :num_words]
-
-                #######################################################
-                # (2) Generate fake images
-                ######################################################
-                noise.data.normal_(0, 1)
-                fake_imgs, _, mu, logvar = netG(noise, sent_emb, words_embs, mask)
-
-                #######################################################
-                # (3) Update D network
-                ######################################################
-                errD_total = 0
-                D_logs = ''
-                for i in range(len(netsD)):
-                    netsD[i].zero_grad()
-                    errD, real_errD, fake_errD, wrong_errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
-                                              sent_emb, real_labels, fake_labels)
-                    # backward and update parameters
-
-                    #wrong_errD.backward(self.grad_factor)
-                    #real_errD.backward(self.neg_grad_factor)
-                    #fake_errD.backward(self.grad_factor)
-                    train_history['D_loss'].append((num_iterations, errD, real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
-                    errD.backward()
-                    optimizersD[i].step()
-
-                    for p in netsD[i].parameters():
-                        p.data.clamp_(-0.01, 0.01)
-
-                    errD_total += errD
-                    D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
-                step += 1
-                print("Current count: ", curr_count)
-                print("Num iterations: ", num_iterations)
-                print("Generator Iterations: ", gen_iterations)
-                print("Step : ", step, "  Epoch: ", epoch)
-                if curr_count < d_iters and step < self.num_batches - 1:
-                    curr_count += 1
-                    num_iterations += 1
-                    continue
+                if gen_iterations < 25 or gen_iterations % 500 == 0:
+                    d_iters = 100
                 else:
-                    curr_count = 0
-                    num_iterations += 1
+                    d_iters = wgan_d_iters
+
+                curr_count = 0
+                while curr_count < d_iters and step < self.num_batches:
+                    curr_count += 1
+                    # reset requires_grad to be trainable for all Ds
+                    # self.set_requires_grad_value(netsD, True)
+
+                    ######################################################
+                    # (1) Prepare training data and Compute text embeddings
+                    ######################################################
+                    data = data_iter.next()
+                    imgs, captions, cap_lens, class_ids, keys = prepare_data(data)
+
+                    hidden = text_encoder.init_hidden(batch_size)
+                    # words_embs: batch_size x nef x seq_len
+                    # sent_emb: batch_size x nef
+                    words_embs, sent_emb = text_encoder(captions, cap_lens, hidden)
+                    words_embs, sent_emb = words_embs.detach(), sent_emb.detach()
+                    mask = (captions == 0)
+                    num_words = words_embs.size(2)
+                    if mask.size(1) > num_words:
+                        mask = mask[:, :num_words]
+
+                    #######################################################
+                    # (2) Generate fake images
+                    ######################################################
+                    noise.data.normal_(0, 1)
+                    fake_imgs, _, mu, logvar = netG(noise, sent_emb, words_embs, mask)
+
+                    #######################################################
+                    # (3) Update D network
+                    ######################################################
+                    errD_total = 0
+                    D_logs = ''
+                    for i in range(len(netsD)):
+                        netsD[i].zero_grad()
+                        errD, real_errD, fake_errD, wrong_errD = discriminator_loss(netsD[i], imgs[i], fake_imgs[i],
+                                                  sent_emb, real_labels, fake_labels)
+                        # backward and update parameters
+
+                        #wrong_errD.backward(self.grad_factor)
+                        #real_errD.backward(self.neg_grad_factor)
+                        #fake_errD.backward(self.grad_factor)
+                        train_history['D_loss'].append(( errD.data[0], real_errD.data[0], fake_errD.data[0], wrong_errD.data[0]))
+                        errD.backward()
+                        optimizersD[i].step()
+
+                        for p in netsD[i].parameters():
+                            p.data.clamp_(-0.01, 0.01)
+
+                        errD_total += errD.data[0]
+                        D_logs += 'errD%d: %.2f ' % (i, errD.data[0])
+                    step += 1
+                    print("Current count: ", curr_count)
+                    #print("Num iterations: ", num_iterations)
+                    print("Generator Iterations: ", gen_iterations)
+                    print("Step : ", step, "  Epoch: ", epoch)
+                    # if curr_count < d_iters and step < self.num_batches - 1:
+                    #     curr_count += 1
+                    #     num_iterations += 1
+                    #     continue
+                    # else:
+                    #     curr_count = 0
+                    #     num_iterations += 1
                 #######################################################
                 # (4) Update G network: maximize log(D(G(z)))
                 ######################################################
@@ -333,7 +338,7 @@ class condGANTrainer(object):
                                    words_embs, sent_emb, match_labels, cap_lens, class_ids)
                 kl_loss = KL_loss(mu, logvar)
                 errG_total += kl_loss
-                train_history['G_loss'].append((num_iterations, errG_total))
+                train_history['G_loss'].append((errG_total.data[0]))
                 G_logs += 'kl_loss: %.2f ' % kl_loss.data[0]
                 # backward and update parameters
                 errG_total.backward()
@@ -356,7 +361,7 @@ class condGANTrainer(object):
                     #                       words_embs, mask, image_encoder,
                     #                       captions, cap_lens,
                     #                       epoch, name='current')
-                    if num_iterations % 100 == 0:
+                    if gen_iterations % 50 == 0:
                         np.save('train_history.npy', train_history)
             end_t = time.time()
 
