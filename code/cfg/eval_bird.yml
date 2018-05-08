@@ -15,7 +15,7 @@ TRAIN:
     NET_G: '../models/bird_AttnGAN2.pth'
     B_NET_D: False
     BATCH_SIZE: 20
-    NET_E: '../DAMSMencoders/bird/text_encoder600.pth'
+    NET_E: '../DAMSMencoders/bird/text_encoder200.pth'
 
 
 GAN:

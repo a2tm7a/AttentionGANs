@@ -358,7 +358,7 @@ class condGANTrainer(object):
             print('Error: the path for morels is not found!')
         else:
             if split_dir == 'test':
-                split_dir = 'valid'
+                split_dir = 'valid2'
             # Build and load the generator
             if cfg.GAN.B_DCGAN:
                 netG = G_DCGAN()
@@ -404,6 +404,15 @@ class condGANTrainer(object):
                     #     break
 
                     imgs, captions, cap_lens, class_ids, keys = prepare_data(data)
+                    # print(cap_lens)
+                    # print(class_ids)
+                    # print(keys)
+
+                    # captions = Variable(torch.from_numpy(captions), volatile=True)
+                    # cap_lens = Variable(torch.from_numpy(cap_lens), volatile=True)
+
+                    captions = captions.cuda()
+                    cap_lens = cap_lens.cuda()
 
                     hidden = text_encoder.init_hidden(batch_size)
                     # words_embs: batch_size x nef x seq_len
@@ -418,8 +427,9 @@ class condGANTrainer(object):
                     #######################################################
                     # (2) Generate fake images
                     ######################################################
+                    cap_lens_np = cap_lens.cpu().data.numpy()
                     noise.data.normal_(0, 1)
-                    fake_imgs, _, _, _ = netG(noise, sent_emb, words_embs, mask)
+                    fake_imgs, attention_maps, _, _ = netG(noise, sent_emb, words_embs, mask)
                     for j in range(batch_size):
                         s_tmp = '%s/single/%s' % (save_dir, keys[j])
                         folder = s_tmp[:s_tmp.rfind('/')]
@@ -427,15 +437,35 @@ class condGANTrainer(object):
                             print('Make a new folder: ', folder)
                             mkdir_p(folder)
                         k = -1
-                        # for k in range(len(fake_imgs)):
-                        im = fake_imgs[k][j].data.cpu().numpy()
-                        # [-1, 1] --> [0, 255]
-                        im = (im + 1.0) * 127.5
-                        im = im.astype(np.uint8)
-                        im = np.transpose(im, (1, 2, 0))
-                        im = Image.fromarray(im)
-                        fullpath = '%s_s%d.png' % (s_tmp, k)
-                        im.save(fullpath)
+                        for k in range(len(fake_imgs)):
+                            im = fake_imgs[k][j].data.cpu().numpy()
+                            # [-1, 1] --> [0, 255]
+                            im = (im + 1.0) * 127.5
+                            im = im.astype(np.uint8)
+                            im = np.transpose(im, (1, 2, 0))
+                            im = Image.fromarray(im)
+                            fullpath = '%s_s%d.png' % (s_tmp, k)
+                            im.save(fullpath)
+                        """
+                        for k in range(len(attention_maps)):
+                            if len(fake_imgs) > 1:
+                                im = fake_imgs[k + 1].detach().cpu()
+                            else:
+                                im = fake_imgs[0].detach().cpu()
+                            attn_maps = attention_maps[k]
+                            att_sze = attn_maps.size(2)
+                            img_set, sentences = \
+                                build_super_images2(im[j].unsqueeze(0),
+                                                    captions[j].unsqueeze(0),
+                                                    [cap_lens_np[j]], self.ixtoword,
+                                                    [attn_maps[j]], att_sze)
+                            full_caption = ' '.join(sentences[0])
+                            if img_set is not None:
+                                im = Image.fromarray(img_set)
+                                fullpath = '%s%s_a%d.png' % (s_tmp, full_caption, k)
+                                im.save(fullpath)
+                        del fake_imgs, attention_maps, im, attn_maps, img_set, sentences, words_embs, sent_emb
+                        """
 
     def gen_example(self, data_dic):
         if cfg.TRAIN.NET_G == '':
@@ -519,7 +549,8 @@ class condGANTrainer(object):
                                                     captions[j].unsqueeze(0),
                                                     [cap_lens_np[j]], self.ixtoword,
                                                     [attn_maps[j]], att_sze)
+                            full_caption = ' '.join(sentences[0])
                             if img_set is not None:
                                 im = Image.fromarray(img_set)
-                                fullpath = '%s_a%d.png' % (save_name, k)
+                                fullpath = '%s%s_a%d.png' % (save_name, full_caption, k)
                                 im.save(fullpath)
